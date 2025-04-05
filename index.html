@@ -49,6 +49,33 @@
             font-style: italic;
         }
 
+        .progress-container {
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 0px;
+    margin-top: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+    .progress-bar {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #89C4F4, #5588bb);
+        transition: width 0.1s linear, opacity 0.3s;
+        will-change: width;
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    /* 移动端适配 */
+    @media (max-width: 768px) {
+        .progress-container {
+            margin-top: 8px;
+        }
+    }
+
         @media (max-width: 768px) {
             .api-container {
                 width: 80%;
@@ -206,7 +233,7 @@
             /* 移动端角色适配 */
             .anime-character {
                 width: 80px;
-                transform: translate(-20px, -60px);
+                transform: translate(280px, -70px);
             }
         }
 
@@ -228,6 +255,10 @@
     <div class="api-container" id="apiBox">
         <div class="api-content">正在加载智慧箴言...</div>
         <div class="api-author"></div>
+        <!-- 新增进度条 -->
+        <div class="progress-container">
+            <div class="progress-bar" id="apiProgress"></div>
+        </div>
     </div>
 
     <img src="bottle.png" class="bottle" onclick="showBottleModal()">
@@ -244,23 +275,65 @@ let apiRefreshInterval;
 
 function initAPIDisplay() {
     fetchQuote();
-    apiRefreshInterval = setInterval(fetchQuote, 300000); // 每5分钟刷新
+    apiRefreshInterval = setInterval(fetchQuote, 180000); // 每5分钟刷新
 }
+
+
+let progressTimer;
+
+let progressStartTime;
 
 async function fetchQuote() {
     try {
-        const response = await fetch('https://xiaoapi.cn/API/yulu.php?type=%E5%8A%A8%E6%BC%AB');
-        if (!response.ok) throw new Error('网络响应异常');
+        showProgressBar();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         
+        const response = await fetch('https://xiaoapi.cn/API/yulu.php?type=%E5%8A%A8%E6%BC%AB', {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) throw new Error('网络响应异常');
         const data = await response.text();
-        console.log(data)
+        
         updateQuoteDisplay(data);
+        completeProgress(true);
     } catch (error) {
         console.error('获取名言失败:', error);
         showFallbackMessage();
+        completeProgress(false);
     }
 }
 
+function showProgressBar() {
+    const progressBar = document.getElementById('apiProgress');
+    progressBar.style.width = '0%';
+    progressStartTime = Date.now();
+    
+    // 真实进度模拟
+    const update = () => {
+        const elapsed = Date.now() - progressStartTime;
+        const progress = Math.min(elapsed / 180000 * 100, 100); // 假设最大加载时间5秒
+        progressBar.style.width = progress + '%';
+        if (progress < 100) requestAnimationFrame(update);
+    };
+    requestAnimationFrame(update);
+}
+
+function completeProgress(success) {
+    const progressBar = document.getElementById('apiProgress');
+    const currentWidth = parseFloat(progressBar.style.width);
+    const remaining = 100 - currentWidth;
+    
+    progressBar.style.transition = `width ${remaining/200}ms linear`;
+    progressBar.style.width = '100%';
+    
+    setTimeout(() => {
+        progressBar.style.transition = 'width 0.3s ease';
+        progressBar.style.width = '0%';
+    }, 500);
+}
 function updateQuoteDisplay(data) {
     const container = document.getElementById('apiBox');
     const contentDiv = container.querySelector('.api-content');
@@ -286,6 +359,7 @@ function showFallbackMessage() {
     
     document.querySelector('.api-content').textContent = quotes[randomIndex];
     document.querySelector('.api-author').textContent = '系统推荐';
+    completeProgress(false); // 强制完成动画
 }
 
 

@@ -142,18 +142,6 @@
             z-index: 150;
         }
 
-        .audio-control {
-            position: fixed;
-            right: 20px;
-            top: 20px;
-            padding: 10px;
-            background: rgba(255,255,255,0.9);
-            border-radius: 50%;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            cursor: pointer;
-            z-index: 200;
-        }
-
         @keyframes waveFlow {
             from { transform: translateX(-50%) translateY(8vw); }
             to { transform: translateX(0) translateY(8vw); }
@@ -216,13 +204,6 @@
                 height: 80px;
                 font-size: 14px;
             }
-
-            .audio-control {
-                right: 12px;
-                top: 12px;
-                padding: 8px;
-                font-size: 18px;
-            }
         }
     </style>
 </head>
@@ -237,7 +218,7 @@
     <img src="bottle.png" class="bottle" onclick="showBottleModal()">
     <!-- <img src="donation-qrcode.jpg" class="donation" alt="支持我们"> -->
 
-    <audio id="bgm" loop preload="auto">
+    <audio id="bgm" loop hidden>
         <source src="waves.mp3" type="audio/mpeg">
         您的浏览器不支持音频播放
     </audio>
@@ -250,7 +231,7 @@ updateCounters();
 
 // 输入框功能
 let isDragging = false;
-let initialX = 0, initialY = 0;
+let startX = 0, startY = 0, initialX = 0, initialY = 0;
 
 function createDraggableInput() {
     const inputBox = document.createElement('div');
@@ -272,11 +253,9 @@ function createDraggableInput() {
     inputBox.appendChild(textarea);
     inputBox.appendChild(button);
     
-    // 初始定位
-    const centerX = (window.innerWidth - inputBox.offsetWidth) / 2;
-    const centerY = (window.innerHeight - inputBox.offsetHeight) / 2;
-    inputBox.style.left = `${Math.max(0, centerX)}px`;
-    inputBox.style.top = `${Math.max(0, centerY)}px`;
+    // 初始居中
+inputBox.style.left = `${(window.innerWidth - inputBox.offsetWidth)/2}px`;
+inputBox.style.top = `${(window.innerHeight - inputBox.offsetHeight)/2}px`;
     
     document.body.appendChild(inputBox);
 
@@ -300,9 +279,14 @@ function handleTouchMove(e) {
 function startDrag(e) {
     isDragging = true;
     const inputBox = document.querySelector('.text-input');
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
+    
+    // 获取元素当前实际位置（包含transform后的位置）
     const rect = inputBox.getBoundingClientRect();
-    initialX = e.clientX - rect.left;
-    initialY = e.clientY - rect.top;
+    initialX = clientX - rect.left; // 使用实际渲染位置
+    initialY = clientY - rect.top;
+    
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', stopDrag);
 }
@@ -310,18 +294,24 @@ function startDrag(e) {
 function drag(e) {
     if (!isDragging) return;
     const inputBox = document.querySelector('.text-input');
-    const clientX = e.clientX || e.touches[0].clientX;
+    const clientX = e.clientX || e.touches[0].clientX; // 统一处理触摸/鼠标事件
     const clientY = e.clientY || e.touches[0].clientY;
     
+    // 实时获取元素精确尺寸（包含边框）
     const rect = inputBox.getBoundingClientRect();
+    
+    // 计算可移动范围（使用不包含滚动条的视口宽度）
     const maxX = document.documentElement.clientWidth - rect.width;
     const maxY = document.documentElement.clientHeight - rect.height;
     
+    // 清除transform干扰
     inputBox.style.transform = 'none';
     
+    // 计算新坐标
     let newX = clientX - initialX;
     let newY = clientY - initialY;
     
+    // 严格限制边界
     newX = Math.max(0, Math.min(newX, maxX));
     newY = Math.max(0, Math.min(newY, maxY));
     
@@ -356,6 +346,7 @@ function createMessage() {
     localStorage.setItem('worries', worries);
     updateCounters();
     
+    // 触发波浪动画
     document.querySelector('.wave').style.animation = 'none';
     requestAnimationFrame(() => {
         document.querySelector('.wave').style.animation = 'waveFlow 8s linear infinite';
@@ -416,34 +407,17 @@ function updateCounters() {
 
 // 音频控制
 let audioInitialized = false;
-const audio = document.getElementById('bgm');
-document.querySelector('.bottle').addEventListener('click', initAudio);
-document.querySelector('.drag-handle').addEventListener('click', initAudio);
-document.querySelector('button').addEventListener('click', initAudio);
+window.addEventListener('click', initAudio);
+window.addEventListener('touchstart', initAudio);
 
 function initAudio() {
     if (audioInitialized) return;
-    
-    audio.play().then(() => {
-        audio.pause();
-        audioInitialized = true;
-    }).catch(error => {
-        showFloatingMessage('🎵 点击播放音乐');
+    const audio = document.getElementById('bgm');
+    audio.volume = 0.3;
+    audio.play().catch(() => {
+        showFloatingMessage('🎵 点击任意位置播放音乐');
     });
-
-    window.removeEventListener('click', initAudio);
-    window.removeEventListener('touchstart', initAudio);
-}
-
-function createAudioControl() {
-    const audioBtn = document.createElement('div');
-    audioBtn.className = 'audio-control';
-    audioBtn.innerHTML = '🎵';
-    audioBtn.onclick = () => {
-        audio.paused ? audio.play() : audio.pause();
-        audioBtn.innerHTML = audio.paused ? '🎵' : '⏸';
-    };
-    document.body.appendChild(audioBtn);
+    audioInitialized = true;
 }
 
 // 虚拟键盘适配
@@ -455,11 +429,8 @@ document.querySelector('textarea')?.addEventListener('focus', function() {
 });
 
 // 初始化
-window.onload = () => {
-    createDraggableInput();
-    createAudioControl();
-    document.documentElement.style.setProperty('--safe-area', env(safe-area-inset-bottom) + 'px');
-};
+window.onload = createDraggableInput;
+document.documentElement.style.setProperty('--safe-area', env(safe-area-inset-bottom) + 'px');
 </script>
 </body>
 </html>

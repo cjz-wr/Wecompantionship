@@ -216,7 +216,7 @@
     </div>
 
     <img src="bottle.png" class="bottle" onclick="showBottleModal()">
-    <img src="donation-qrcode.jpg" class="donation" alt="支持我们">
+    <!-- <img src="donation-qrcode.jpg" class="donation" alt="支持我们"> -->
 
     <audio id="bgm" loop hidden>
         <source src="waves.mp3" type="audio/mpeg">
@@ -254,9 +254,8 @@ function createDraggableInput() {
     inputBox.appendChild(button);
     
     // 初始居中
-    inputBox.style.left = '50%';
-    inputBox.style.top = '50%';
-    inputBox.style.transform = 'translate(-50%, -50%)';
+    inputBox.style.left = `${(window.innerWidth - inputBox.offsetWidth)/2}px`;
+    inputBox.style.top = `${(window.innerHeight - inputBox.offsetHeight)/2}px`;
     
     document.body.appendChild(inputBox);
 
@@ -280,8 +279,14 @@ function handleTouchMove(e) {
 function startDrag(e) {
     isDragging = true;
     const inputBox = document.querySelector('.text-input');
-    initialX = e.clientX - inputBox.offsetLeft;
-    initialY = e.clientY - inputBox.offsetTop;
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
+    
+    // 获取元素当前实际位置（包含transform后的位置）
+    const rect = inputBox.getBoundingClientRect();
+    initialX = clientX - rect.left; // 使用实际渲染位置
+    initialY = clientY - rect.top;
+    
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', stopDrag);
 }
@@ -289,12 +294,26 @@ function startDrag(e) {
 function drag(e) {
     if (!isDragging) return;
     const inputBox = document.querySelector('.text-input');
-    let newX = e.clientX - initialX;
-    let newY = e.clientY - initialY;
+    const clientX = e.clientX || e.touches[0].clientX; // 统一处理触摸/鼠标事件
+    const clientY = e.clientY || e.touches[0].clientY;
     
-    // 边界限制
-    newX = Math.max(0, Math.min(newX, window.innerWidth - inputBox.offsetWidth));
-    newY = Math.max(0, Math.min(newY, window.innerHeight - inputBox.offsetHeight));
+    // 实时获取元素精确尺寸（包含边框）
+    const rect = inputBox.getBoundingClientRect();
+    
+    // 计算可移动范围（使用不包含滚动条的视口宽度）
+    const maxX = document.documentElement.clientWidth - rect.width;
+    const maxY = document.documentElement.clientHeight - rect.height;
+    
+    // 清除transform干扰
+    inputBox.style.transform = 'none';
+    
+    // 计算新坐标
+    let newX = clientX - initialX;
+    let newY = clientY - initialY;
+    
+    // 严格限制边界
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
     
     inputBox.style.left = `${newX}px`;
     inputBox.style.top = `${newY}px`;

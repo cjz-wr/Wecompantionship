@@ -225,6 +225,9 @@
 
 <script>
 // 初始化数据
+
+
+
 let worries = parseInt(localStorage.getItem('worries')) || 0;
 let bottles = parseInt(localStorage.getItem('bottles')) || 0;
 updateCounters();
@@ -405,20 +408,66 @@ function updateCounters() {
     document.getElementById('bottleCount').textContent = bottles;
 }
 
+// 初始化数据（保持不变）
+
 // 音频控制
 let audioInitialized = false;
-window.addEventListener('click', initAudio);
-window.addEventListener('touchstart', initAudio);
+let audioElement = null; // 改为动态创建
+
+document.addEventListener('click', initAudio);
+document.addEventListener('touchstart', initAudio, { passive: true });
 
 function initAudio() {
     if (audioInitialized) return;
-    const audio = document.getElementById('bgm');
-    audio.volume = 0.3;
-    audio.play().catch(() => {
-        showFloatingMessage('🎵 点击任意位置播放音乐');
+    
+    // 动态创建音频元素
+    audioElement = document.createElement('audio');
+    audioElement.loop = true;
+    audioElement.hidden = true;
+    
+    // 添加多格式支持
+    const sources = [
+        { type: 'audio/mpeg', src: 'waves.mp3' },
+        { type: 'audio/ogg', src: 'waves.ogg' }
+    ];
+    
+    sources.forEach(({ type, src }) => {
+        const source = document.createElement('source');
+        source.src = src;
+        source.type = type;
+        audioElement.appendChild(source);
     });
-    audioInitialized = true;
+
+    document.body.appendChild(audioElement);
+    
+    // iOS特殊处理：需要用户手势直接触发
+    const playPromise = audioElement.play().catch(error => {
+        console.error('音频播放失败:', error);
+        showFloatingMessage('🎵 点击屏幕播放音乐');
+    });
+
+    // 处理Safari的自动播放限制
+    if (playPromise !== undefined) {
+        playPromise.then(_ => {
+            audioInitialized = true;
+        }).catch(error => {
+            audioElement.remove();
+            audioElement = null;
+        });
+    } else {
+        audioInitialized = true;
+    }
 }
+
+// 其他JavaScript代码保持不变
+
+// 修改初始化部分
+window.onload = function() {
+    createDraggableInput();
+    // 移除原有的safe-area设置（已废弃）
+    document.documentElement.style.setProperty('--safe-area', `${window.innerHeight - document.documentElement.clientHeight}px`);
+}
+
 
 // 虚拟键盘适配
 document.querySelector('textarea')?.addEventListener('focus', function() {

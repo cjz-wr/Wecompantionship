@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>心灵沙滩 - 让海浪带走你的烦恼</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background: linear-gradient(180deg, #FDE3A7 60%, #89C4F4 100%);
+            font-family: '楷体', cursive;
+            position: relative;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        .wave {
+            position: absolute;
+            bottom: 0;
+            width: 200%;
+            height: 100px;
+            background: rgba(255,255,255,0.3);
+            animation: waveFlow 8s linear infinite;
+            transform: translateY(50px);
+        }
+
+        .drag-handle {
+            height: 30px;
+            background: #89C4F4;
+            cursor: move;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .text-input {
+            position: absolute;
+            background: rgba(255,255,255,0.9);
+            padding: 0;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            user-select: none;
+            z-index: 100;
+        }
+
+        .text-input textarea {
+            width: 300px;
+            height: 80px;
+            margin: 10px;
+            border: 1px solid #ddd;
+            padding: 5px;
+            resize: none;
+            font-family: inherit;
+        }
+
+        .text-input button {
+            width: calc(100% - 20px);
+            margin: 0 10px 10px;
+            padding: 8px;
+            background: #89C4F4;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .counter {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.8);
+            padding: 10px 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .bottle {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 50px;
+            cursor: pointer;
+            transition: transform 0.3s;
+            z-index: 50;
+        }
+
+        .bottle:hover {
+            transform: scale(1.1);
+        }
+
+        .donation {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 150px;
+            opacity: 0.9;
+            transition: opacity 0.3s;
+            border-radius: 5px;
+        }
+
+        .donation:hover {
+            opacity: 1;
+        }
+
+        .message {
+            position: absolute;
+            color: #34495e;
+            animation: fadeOut 5s forwards;
+            pointer-events: none;
+            max-width: 200px;
+            word-break: break-word;
+            text-align: center;
+        }
+
+        .bottle-animation {
+            position: fixed;
+            width: 30px;
+            height: 50px;
+            pointer-events: none;
+            animation: floatBottle 3s ease-out forwards;
+            filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.3));
+        }
+
+        @keyframes waveFlow {
+            from { transform: translateX(-50%) translateY(50px); }
+            to { transform: translateX(0) translateY(50px); }
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-50px); }
+        }
+
+        @keyframes floatBottle {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+                opacity: 1;
+            }
+            40% {
+                transform: translate(-100px, -80px) rotate(-15deg);
+            }
+            80% {
+                transform: translate(-200px, 50px) rotate(30deg);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translate(-300px, 100px) rotate(45deg);
+                opacity: 0;
+                width: 15px;
+                height: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wave"></div>
+    
+    <div class="counter">
+        🌊 已冲走 <span id="worryCount">0</span> 个烦恼<br>
+        🍾 已漂流 <span id="bottleCount">0</span> 个心愿
+    </div>
+
+    <img src="bottle.png" class="bottle" onclick="showBottleModal()">
+    <!-- <img src="donation-qrcode.png" class="donation" title="支持我们保持网站运行"> -->
+
+    <audio id="bgm" loop hidden>
+        <source src="waves.mp3" type="audio/mpeg">
+    </audio>
+
+<script>
+// 初始化计数器
+let worries = parseInt(localStorage.getItem('worries')) || 0;
+let bottles = parseInt(localStorage.getItem('bottles')) || 0;
+updateCounters();
+
+// 可拖动输入框功能
+let isDragging = false;
+let initialX = 0;
+let initialY = 0;
+
+function createDraggableInput() {
+    const inputBox = document.createElement('div');
+    inputBox.className = 'text-input';
+    
+    const handle = document.createElement('div');
+    handle.className = 'drag-handle';
+    handle.textContent = "拖动这里";
+    
+    const textarea = document.createElement('textarea');
+    textarea.placeholder = "写下烦恼... (最多100字)";
+    textarea.id = 'message';
+    
+    const button = document.createElement('button');
+    button.textContent = "让海浪带走它";
+    button.onclick = createMessage;
+
+    inputBox.appendChild(handle);
+    inputBox.appendChild(textarea);
+    inputBox.appendChild(button);
+    
+    inputBox.style.left = '50%';
+    inputBox.style.top = '50%';
+    inputBox.style.transform = 'translate(-50%, -50%)';
+
+    document.body.appendChild(inputBox);
+
+    handle.addEventListener('mousedown', startDrag);
+}
+
+function startDrag(e) {
+    isDragging = true;
+    const inputBox = e.target.parentElement;
+    initialX = e.clientX - inputBox.offsetLeft;
+    initialY = e.clientY - inputBox.offsetTop;
+    
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', stopDrag);
+}
+
+function drag(e) {
+    if (!isDragging) return;
+    
+    const inputBox = document.querySelector('.text-input');
+    const newX = e.clientX - initialX;
+    const newY = e.clientY - initialY;
+    
+    const maxX = window.innerWidth - inputBox.offsetWidth;
+    const maxY = window.innerHeight - inputBox.offsetHeight;
+    
+    inputBox.style.left = Math.min(Math.max(newX, 0), maxX) + 'px';
+    inputBox.style.top = Math.min(Math.max(newY, 0), maxY) + 'px';
+}
+
+function stopDrag() {
+    isDragging = false;
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', stopDrag);
+}
+
+// 核心功能
+function createMessage() {
+    const text = document.getElementById('message').value;
+    if(text.length > 100) return alert('内容过长');
+    if(text.trim().length === 0) return;
+    
+    const msg = document.createElement('div');
+    msg.className = 'message';
+    msg.style.left = Math.random()*80 + 5 + '%';
+    msg.style.top = Math.random()*30 + 50 + '%';
+    msg.textContent = text;
+    
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 5000);
+    
+    worries++;
+    localStorage.setItem('worries', worries);
+    updateCounters();
+    
+    // 触发波浪刷新
+    document.querySelector('.wave').style.animation = 'none';
+    setTimeout(() => document.querySelector('.wave').style.animation = 'waveFlow 8s linear infinite', 10);
+    
+    document.getElementById('message').value = '';
+}
+
+// 漂流瓶功能
+function showBottleModal() {
+    const message = prompt('写下心愿放入漂流瓶（最多50字）');
+    if(message && message.length <= 50) {
+        createBottleAnimation();
+        bottles++;
+        localStorage.setItem('bottles', bottles);
+        updateCounters();
+    }
+}
+
+function createBottleAnimation() {
+    const bottle = document.createElement('img');
+    bottle.src = 'bottle.png';
+    bottle.className = 'bottle-animation';
+    
+    const bottleBtn = document.querySelector('.bottle');
+    const rect = bottleBtn.getBoundingClientRect();
+    bottle.style.left = rect.left + 25 + 'px';
+    bottle.style.top = rect.top + 10 + 'px';
+    
+    document.body.appendChild(bottle);
+
+    setTimeout(() => {
+        bottle.remove();
+        showFloatingMessage('漂流瓶已漂向远方 🌊');
+    }, 3000);
+}
+
+function showFloatingMessage(text) {
+    const tip = document.createElement('div');
+    tip.textContent = text;
+    tip.style.position = 'fixed';
+    tip.style.left = '50%';
+    tip.style.top = '20%';
+    tip.style.transform = 'translateX(-50%)';
+    tip.style.background = 'rgba(255,255,255,0.9)';
+    tip.style.padding = '8px 15px';
+    tip.style.borderRadius = '20px';
+    tip.style.animation = 'fadeOut 2s forwards';
+    tip.style.zIndex = '200';
+    
+    document.body.appendChild(tip);
+    setTimeout(() => tip.remove(), 2000);
+}
+
+function updateCounters() {
+    document.getElementById('worryCount').textContent = worries;
+    document.getElementById('bottleCount').textContent = bottles;
+}
+
+// 背景音乐控制
+window.addEventListener('click', () => {
+    const audio = document.getElementById('bgm');
+    if(audio.paused) {
+        audio.play().catch(() => {});
+        document.querySelector('.bottle').style.pointerEvents = 'auto';
+    }
+});
+
+// 初始化
+window.onload = createDraggableInput;
+</script>
+</body>
+</html>

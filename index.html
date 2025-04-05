@@ -50,6 +50,7 @@
             z-index: 100;
             width: 80vw;
             max-width: 400px;
+            /* padding-top: 10px; 新增顶部间距 */
         }
 
         .text-input textarea {
@@ -128,6 +129,17 @@
             z-index: 150;
         }
 
+        /* 新增动漫角色样式 */
+        .anime-character {
+            position: absolute;
+            width: 120px;
+            height: auto;
+            pointer-events: none;
+            z-index: 150;
+            transform: translate(280px, -70px);
+            transition: transform 0.3s;
+        }
+
         @keyframes waveFlow {
             from { transform: translateX(-50%) translateY(8vw); }
             to { transform: translateX(0) translateY(8vw); }
@@ -149,8 +161,13 @@
             .wave { height: 16vw; transform: translateY(12vw); }
             .counter { font-size: 12px; padding: 8px 12px; top: 12px; left: 12px; }
             .bottle { width: 40px; height: 64px; right: 12px; }
-            .text-input { width: 90vw !important; }
+            .text-input { width: 90vw !important; padding-top: 30px; }
             .text-input textarea { height: 80px; font-size: 14px; }
+            /* 移动端角色适配 */
+            .anime-character {
+                width: 80px;
+                transform: translate(-20px, -60px);
+            }
         }
     </style>
 </head>
@@ -266,6 +283,12 @@ function createDraggableInput() {
     const button = document.createElement('button');
     button.textContent = "让海浪带走它 🌊";
     button.onclick = createMessage;
+
+    // 添加动漫角色
+    const character = new Image();
+    character.src = 'anime_girl.png';
+    character.className = 'anime-character';
+    inputBox.appendChild(character);
 
     inputBox.appendChild(handle);
     inputBox.appendChild(textarea);

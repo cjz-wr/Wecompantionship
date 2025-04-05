@@ -6,7 +6,7 @@
     <title>心灵沙滩 - 治愈你的烦恼</title>
     <style>
         :root {
-            --safe-area: env(safe-area-inset-bottom);
+            --safe-area: 0px;
         }
 
         body {
@@ -106,20 +106,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        .bottle:active {
-            transform: scale(0.95);
-        }
-
-        .donation {
-            position: fixed;
-            left: 20px;
-            bottom: calc(20px + var(--safe-area));
-            width: 120px;
-            opacity: 0.9;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
         .message {
             position: absolute;
             color: #2c3e50;
@@ -153,57 +139,18 @@
         }
 
         @keyframes floatBottle {
-            0% {
-                transform: translate(0, 0) rotate(0deg);
-                opacity: 1;
-            }
-            40% {
-                transform: translate(-15vw, -15vh) rotate(-15deg);
-            }
-            80% {
-                transform: translate(-30vw, 5vh) rotate(30deg);
-                opacity: 0.8;
-            }
-            100% {
-                transform: translate(-50vw, 20vh) rotate(45deg);
-                opacity: 0;
-                width: 15px;
-                height: 25px;
-            }
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+            40% { transform: translate(-15vw, -15vh) rotate(-15deg); }
+            80% { transform: translate(-30vw, 5vh) rotate(30deg); opacity: 0.8; }
+            100% { transform: translate(-50vw, 20vh) rotate(45deg); opacity: 0; }
         }
 
         @media (max-width: 768px) {
-            .wave {
-                height: 16vw;
-                transform: translateY(12vw);
-            }
-
-            .counter {
-                font-size: 12px;
-                padding: 8px 12px;
-                top: 12px;
-                left: 12px;
-            }
-
-            .bottle {
-                width: 40px;
-                height: 64px;
-                right: 12px;
-            }
-
-            .donation {
-                width: 100px;
-                left: 12px;
-            }
-
-            .text-input {
-                width: 90vw !important;
-            }
-
-            .text-input textarea {
-                height: 80px;
-                font-size: 14px;
-            }
+            .wave { height: 16vw; transform: translateY(12vw); }
+            .counter { font-size: 12px; padding: 8px 12px; top: 12px; left: 12px; }
+            .bottle { width: 40px; height: 64px; right: 12px; }
+            .text-input { width: 90vw !important; }
+            .text-input textarea { height: 80px; font-size: 14px; }
         }
     </style>
 </head>
@@ -216,26 +163,94 @@
     </div>
 
     <img src="bottle.png" class="bottle" onclick="showBottleModal()">
-    <!-- <img src="donation-qrcode.jpg" class="donation" alt="支持我们"> -->
-
-    <audio id="bgm" loop hidden>
-        <source src="waves.mp3" type="audio/mpeg">
-        您的浏览器不支持音频播放
-    </audio>
 
 <script>
-// 初始化数据
-
-
-
+// 数据存储
 let worries = parseInt(localStorage.getItem('worries')) || 0;
 let bottles = parseInt(localStorage.getItem('bottles')) || 0;
-updateCounters();
+
+// 音频控制系统
+let audioElement = null;
+let audioInitialized = false;
+
+// 首次交互处理
+document.addEventListener('click', handleFirstInteraction, { once: true });
+document.addEventListener('touchstart', handleFirstInteraction, { once: true, passive: true });
+
+function handleFirstInteraction() {
+    initAudio();
+    setTimeout(attemptPlay, 300);
+}
+
+function initAudio() {
+    if (audioElement) return;
+    
+    audioElement = document.createElement('audio');
+    audioElement.loop = true;
+    audioElement.hidden = true;
+    audioElement.preload = "auto";
+    audioElement.volume = 0.3;
+
+    // 多格式支持
+    const sources = [
+        { type: 'audio/mpeg', src: 'waves.mp3' },
+        { type: 'audio/ogg', src: 'waves.ogg' },
+        { type: 'audio/aac', src: 'waves.m4a' }
+    ];
+    
+    sources.forEach(({ type, src }) => {
+        const source = document.createElement('source');
+        source.src = src;
+        source.type = type;
+        audioElement.appendChild(source);
+    });
+
+    document.body.appendChild(audioElement);
+    
+    audioElement.addEventListener('canplaythrough', () => {
+        console.log('音频准备就绪');
+        audioInitialized = true;
+    });
+
+    audioElement.addEventListener('error', (e) => {
+        console.error('音频错误:', audioElement.error);
+        showFloatingMessage('🎵 音乐加载失败');
+        audioElement.remove();
+        audioElement = null;
+    });
+}
+
+function attemptPlay() {
+    if (!audioElement || audioElement.error) return;
+    
+    const wasMuted = audioElement.muted;
+    audioElement.muted = true;
+    
+    audioElement.play()
+        .then(() => {
+            audioElement.muted = wasMuted;
+            audioInitialized = true;
+        })
+        .catch(error => {
+            console.error('播放失败:', error);
+            showFloatingMessage('🎵 点击播放音乐');
+            document.addEventListener('click', retryPlay, { once: true });
+        });
+}
+
+function retryPlay() {
+    if (!audioElement) return;
+    audioElement.play()
+        .then(() => {
+            showFloatingMessage('🎶 音乐已开启');
+        })
+        .catch(error => {
+            console.error('再次播放失败:', error);
+            showFloatingMessage('🔇 请检查设备音量');
+        });
+}
 
 // 输入框功能
-let isDragging = false;
-let startX = 0, startY = 0, initialX = 0, initialY = 0;
-
 function createDraggableInput() {
     const inputBox = document.createElement('div');
     inputBox.className = 'text-input';
@@ -256,39 +271,29 @@ function createDraggableInput() {
     inputBox.appendChild(textarea);
     inputBox.appendChild(button);
     
-    // 初始居中
-inputBox.style.left = `${(window.innerWidth - inputBox.offsetWidth)/2}px`;
-inputBox.style.top = `${(window.innerHeight - inputBox.offsetHeight)/2}px`;
-    
+    inputBox.style.left = `${(window.innerWidth - 400)/2}px`;
+    inputBox.style.top = `${window.innerHeight/2 - 100}px`;
     document.body.appendChild(inputBox);
 
-    // 事件监听
+    // 拖拽事件
     handle.addEventListener('mousedown', startDrag);
-    handle.addEventListener('touchstart', handleTouchStart, { passive: false });
+    handle.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startDrag(e.touches[0]);
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+    });
 }
 
-function handleTouchStart(e) {
-    e.preventDefault();
-    startDrag(e.touches[0]);
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', stopDrag);
-}
-
-function handleTouchMove(e) {
-    e.preventDefault();
-    drag(e.touches[0]);
-}
+let isDragging = false;
+let initialX = 0, initialY = 0;
 
 function startDrag(e) {
     isDragging = true;
     const inputBox = document.querySelector('.text-input');
-    const clientX = e.clientX || e.touches[0].clientX;
-    const clientY = e.clientY || e.touches[0].clientY;
-    
-    // 获取元素当前实际位置（包含transform后的位置）
     const rect = inputBox.getBoundingClientRect();
-    initialX = clientX - rect.left; // 使用实际渲染位置
-    initialY = clientY - rect.top;
+    initialX = e.clientX - rect.left;
+    initialY = e.clientY - rect.top;
     
     document.addEventListener('mousemove', drag);
     document.addEventListener('mouseup', stopDrag);
@@ -297,29 +302,22 @@ function startDrag(e) {
 function drag(e) {
     if (!isDragging) return;
     const inputBox = document.querySelector('.text-input');
-    const clientX = e.clientX || e.touches[0].clientX; // 统一处理触摸/鼠标事件
+    const clientX = e.clientX || e.touches[0].clientX;
     const clientY = e.clientY || e.touches[0].clientY;
     
-    // 实时获取元素精确尺寸（包含边框）
-    const rect = inputBox.getBoundingClientRect();
-    
-    // 计算可移动范围（使用不包含滚动条的视口宽度）
-    const maxX = document.documentElement.clientWidth - rect.width;
-    const maxY = document.documentElement.clientHeight - rect.height;
-    
-    // 清除transform干扰
-    inputBox.style.transform = 'none';
-    
-    // 计算新坐标
     let newX = clientX - initialX;
     let newY = clientY - initialY;
     
-    // 严格限制边界
-    newX = Math.max(0, Math.min(newX, maxX));
-    newY = Math.max(0, Math.min(newY, maxY));
+    newX = Math.max(0, Math.min(newX, window.innerWidth - inputBox.offsetWidth));
+    newY = Math.max(0, Math.min(newY, window.innerHeight - inputBox.offsetHeight));
     
     inputBox.style.left = `${newX}px`;
     inputBox.style.top = `${newY}px`;
+}
+
+function handleTouchMove(e) {
+    e.preventDefault();
+    drag(e.touches[0]);
 }
 
 function stopDrag() {
@@ -334,7 +332,7 @@ function stopDrag() {
 function createMessage() {
     const text = document.getElementById('message').value.trim();
     if (!text) return;
-    if (text.length > 100) return alert('内容过长，请控制在100字内');
+    if (text.length > 100) return showFloatingMessage('内容不能超过100字');
 
     const msg = document.createElement('div');
     msg.className = 'message';
@@ -345,11 +343,9 @@ function createMessage() {
     document.body.appendChild(msg);
     setTimeout(() => msg.remove(), 5000);
     
-    worries++;
-    localStorage.setItem('worries', worries);
+    localStorage.setItem('worries', ++worries);
     updateCounters();
     
-    // 触发波浪动画
     document.querySelector('.wave').style.animation = 'none';
     requestAnimationFrame(() => {
         document.querySelector('.wave').style.animation = 'waveFlow 8s linear infinite';
@@ -364,8 +360,7 @@ function showBottleModal() {
     if (!message || message.length > 50) return;
     
     createBottleAnimation();
-    bottles++;
-    localStorage.setItem('bottles', bottles);
+    localStorage.setItem('bottles', ++bottles);
     updateCounters();
 }
 
@@ -381,6 +376,12 @@ function createBottleAnimation() {
     document.body.appendChild(bottle);
     setTimeout(() => bottle.remove(), 3000);
     showFloatingMessage('🌊 心愿已漂向远方...');
+}
+
+// 通用功能
+function updateCounters() {
+    document.getElementById('worryCount').textContent = worries;
+    document.getElementById('bottleCount').textContent = bottles;
 }
 
 function showFloatingMessage(text) {
@@ -403,83 +404,12 @@ function showFloatingMessage(text) {
     setTimeout(() => tip.remove(), 2000);
 }
 
-function updateCounters() {
-    document.getElementById('worryCount').textContent = worries;
-    document.getElementById('bottleCount').textContent = bottles;
-}
-
-// 初始化数据（保持不变）
-
-// 音频控制
-let audioInitialized = false;
-let audioElement = null; // 改为动态创建
-
-document.addEventListener('click', initAudio);
-document.addEventListener('touchstart', initAudio, { passive: true });
-
-function initAudio() {
-    if (audioInitialized) return;
-    
-    // 动态创建音频元素
-    audioElement = document.createElement('audio');
-    audioElement.loop = true;
-    audioElement.hidden = true;
-    
-    // 添加多格式支持
-    const sources = [
-        { type: 'audio/mpeg', src: 'waves.mp3' },
-        { type: 'audio/ogg', src: 'waves.ogg' }
-    ];
-    
-    sources.forEach(({ type, src }) => {
-        const source = document.createElement('source');
-        source.src = src;
-        source.type = type;
-        audioElement.appendChild(source);
-    });
-
-    document.body.appendChild(audioElement);
-    
-    // iOS特殊处理：需要用户手势直接触发
-    const playPromise = audioElement.play().catch(error => {
-        console.error('音频播放失败:', error);
-        showFloatingMessage('🎵 点击屏幕播放音乐');
-    });
-
-    // 处理Safari的自动播放限制
-    if (playPromise !== undefined) {
-        playPromise.then(_ => {
-            audioInitialized = true;
-        }).catch(error => {
-            audioElement.remove();
-            audioElement = null;
-        });
-    } else {
-        audioInitialized = true;
-    }
-}
-
-// 其他JavaScript代码保持不变
-
-// 修改初始化部分
+// 初始化
 window.onload = function() {
     createDraggableInput();
-    // 移除原有的safe-area设置（已废弃）
-    document.documentElement.style.setProperty('--safe-area', `${window.innerHeight - document.documentElement.clientHeight}px`);
+    const safeArea = window.innerHeight - document.documentElement.clientHeight;
+    document.documentElement.style.setProperty('--safe-area', `${safeArea}px`);
 }
-
-
-// 虚拟键盘适配
-document.querySelector('textarea')?.addEventListener('focus', function() {
-    setTimeout(() => {
-        const inputBox = document.querySelector('.text-input');
-        inputBox.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }, 300);
-});
-
-// 初始化
-window.onload = createDraggableInput;
-document.documentElement.style.setProperty('--safe-area', env(safe-area-inset-bottom) + 'px');
 </script>
 </body>
 </html>

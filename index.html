@@ -339,8 +339,9 @@ function updateQuoteDisplay(data) {
     const contentDiv = container.querySelector('.api-content');
     const authorDiv = container.querySelector('.api-author');
 
-    contentDiv.textContent = data.hitokoto || data;
-    // authorDiv.textContent = data.from || '佚名';
+    const [content, author] = data.split('——'); // 根据实际返回格式分割
+    document.querySelector('.api-content').textContent = content;
+    document.querySelector('.api-author').textContent = author || '佚名';
     
     // 添加呼吸动画
     container.style.animation = 'none';
